@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package util;
 
 import java.io.IOException;
@@ -11,10 +7,6 @@ import java.net.Socket;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/**
- *
- * @author uesr
- */
 public class ConnectionUtillities {
     public Socket sc;
     public ObjectInputStream ois;

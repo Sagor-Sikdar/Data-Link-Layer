@@ -24,6 +24,8 @@ public class Writer implements Runnable{
         
         Scanner in=new Scanner(System.in);
         String condition="null";
+        int flag=1;
+
 
         while(true){
             if (condition.equals("null")) System.out.println("sender / receiver ? : ");
@@ -144,13 +146,19 @@ public class Writer implements Runnable{
         byte[] chunk=new byte[fileInfo.maxSize%(int)size];
         int fileId=fileInfo.fileId;
         fileInputStream=new FileInputStream(file);
+        ClientServerDLL clientServerDLL;
 
         int chunklen=0,i=0;
 
        // connection.write(fileInfo);//fileid er jonno pathalam fileinfo abr
         while ((chunklen = fileInputStream.read(chunk)) != -1) {
-            FileChunk fileChunk = new FileChunk(fileInfo.fileId, chunk);
+            clientServerDLL=new ClientServerDLL(0,0,chunk);
+            byte[] result=(clientServerDLL.getData(0,0,chunk));
+            String t=clientServerDLL.stuffedData(clientServerDLL.convertTotalData(result),"");
+            System.out.println("chunklen for file "+(i+1)+" is :"+chunklen+" and passed size : "+result.length+" result : "+result.length);
+            FileChunk fileChunk = new FileChunk(fileInfo.fileId, clientServerDLL.getFrame(clientServerDLL.stringtoBytearray(t)));
             connection.write(fileChunk);//file er chunk portesi
+
 
             size-=chunklen;
             if (size==0){
@@ -168,7 +176,8 @@ public class Writer implements Runnable{
                 if (acknowledgement.equals("yes")) {
                     System.out.println((++i) + "th chunk received");
                     continue;
-                } else {
+                }
+                else {
                     System.out.println("connection ended");
                     continue;
                 }

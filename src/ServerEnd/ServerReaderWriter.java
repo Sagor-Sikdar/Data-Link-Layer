@@ -43,6 +43,7 @@ public class ServerReaderWriter implements Runnable{
 
         while (true) {
 
+
             //client ki  read korte chay naki write korte chay
             Object o = connection.read();
             if (isConnected(o)) {
@@ -95,7 +96,8 @@ public class ServerReaderWriter implements Runnable{
                                     if (successfulUpload(fileBundle, fileSize)) {
                                         System.out.println("successfully uploaded");
 
-                                    } else {
+                                    }
+                                    else {
                                         System.out.println("unsuccessful");
                                         receiverInfo.get(receiverId).remove(fileData);
                                         addCapacity(fileBundle.getFilesize());
@@ -174,6 +176,7 @@ public class ServerReaderWriter implements Runnable{
             return true;
         }
         else{
+            System.out.println("filesize :"+filesize+" and needed : "+fileBundle.getFilesize());
             return false;
         }
     }
@@ -201,7 +204,7 @@ public class ServerReaderWriter implements Runnable{
 
         decreaseCapacity(size);
 
-        int p=0;
+        int p=0,cnt=0;
 
         while(true){
             try {
@@ -221,6 +224,9 @@ public class ServerReaderWriter implements Runnable{
 
                 else  {
                     fileChunk = (FileChunk) o;
+                    ServerClientDLL serverClientDLL=new ServerClientDLL(fileChunk.chunk);
+                    fileChunk.chunk=serverClientDLL.getChunk(serverClientDLL.bytessafterDestuffing(fileChunk.chunk));
+                    System.out.println("chunken for file"+(++cnt)+" is : "+fileChunk.chunk.length);
                 }
 
                 if (isReceived(fileChunk, fileData)) {
