@@ -19,7 +19,7 @@ import Clients.*;
  *
  * @author uesr
  */
-public class ServerReaderWriter implements Runnable{
+public class ServerReaderWriter extends DLLhelper implements Runnable{
 
     public HashMap<String,Information> clientList;
     public ConnectionUtillities connection;
@@ -42,8 +42,6 @@ public class ServerReaderWriter implements Runnable{
 
 
         while (true) {
-
-
             //client ki  read korte chay naki write korte chay
             Object o = connection.read();
             if (isConnected(o)) {
@@ -63,8 +61,10 @@ public class ServerReaderWriter implements Runnable{
 
                         if (isConnected(object)) {
                             FileBundle fileBundle = (FileBundle) object;//filename ar filesize read korlam
+                            long size=fileBundle.filesize;
 
                             FileInfo fileInfo = getFileInfo(fileBundle);//fileId,filechunk bole dilo
+                            int fileId = fileInfo.fileId;
 
                             //validity checking
                             if (fileInfo == null) {
@@ -72,10 +72,10 @@ public class ServerReaderWriter implements Runnable{
                                 connection.write(null);
                                 continue;
                             }
-                            docfile.put(fileInfo.fileId,fileBundle);
+                            docfile.put(fileId,fileBundle);
                             connection.write(fileInfo);//chunksize,fileid dilam
 
-                            int fileId = fileInfo.fileId;
+
 
                             if (receiverInfo.get(receiverId)==null){
                                 receiverInfo.put(receiverId,new ArrayList<FileData>());
@@ -83,11 +83,11 @@ public class ServerReaderWriter implements Runnable{
                             FileData fileData = new FileData(fileId, new ArrayList<byte[]>());
                             receiverInfo.get(receiverId).add(fileData);
 
-                            int fileSize = readingFromClients(fileBundle.getFilesize(), fileData);
+                            int fileSize = readingFromClients(size, fileData);
 
-                            if (fileSize != -1) {
+                            if (fileSize != -1) {//filesize -1 mane disconnected,jodi majhpothe sender udhao hoye jay ar ki
                                 if (fileSize==0){//timeout
-                                    addCapacity(docfile.get(fileData.fileId).getFilesize());
+                                    addCapacity(docfile.get(fileId).filesize);
                                     receiverInfo.get(receiverId).remove(fileData);
                                     continue;
                                 }
@@ -100,7 +100,7 @@ public class ServerReaderWriter implements Runnable{
                                     else {
                                         System.out.println("unsuccessful");
                                         receiverInfo.get(receiverId).remove(fileData);
-                                        addCapacity(fileBundle.getFilesize());
+                                        addCapacity(fileBundle.filesize);
                                     }
                                 }
                             }
@@ -108,10 +108,9 @@ public class ServerReaderWriter implements Runnable{
                             else {
                                 clientList.remove(username);
                                 receiverInfo.get(receiverId).remove(fileData);
-                                addCapacity(fileBundle.getFilesize());
+                                addCapacity(fileBundle.filesize);
                                 break;
                             }
-                            continue;
                         }
                         else if (!isConnected(object)) {
                             clientList.remove(username);
@@ -122,7 +121,6 @@ public class ServerReaderWriter implements Runnable{
                     else {
                         connection.write("no");
                         System.out.println("recipient is not logged in");
-                        continue;
                     }
                 }
                 else if (string.equals("receiver")){
@@ -138,12 +136,7 @@ public class ServerReaderWriter implements Runnable{
                         break;
                     }
 
-
-                    if (object.toString().equals("no")) {
-                        continue;
-                    }
-
-                    else if (object.toString().equals("yes")) {
+                    if (object.toString().equals("yes")) {
                         int size = receiverInfo.get(username).size();
                         System.out.println("size :" + size);
                         if (size == 0) {
@@ -151,10 +144,11 @@ public class ServerReaderWriter implements Runnable{
                             connection.write(null);
                             continue;
                         }
+
                         FileData file = receiverInfo.get(username).get(0);
                         int fileId=file.fileId;
-                        String name=docfile.get(fileId).getFilename();
-                        long filesize=docfile.get(fileId).getFilesize();
+                        String name=docfile.get(fileId).filename;
+                        long filesize=docfile.get(fileId).filesize;
                         FileSample fileSample=new FileSample(name,file);
                         connection.write(fileSample);
                         receiverInfo.get(username).remove(0);
@@ -172,39 +166,35 @@ public class ServerReaderWriter implements Runnable{
     }
 
     public boolean successfulUpload(FileBundle fileBundle,int filesize){
-        if (fileBundle.getFilesize()==filesize){
+        if (fileBundle.filesize==filesize){
             return true;
         }
         else{
-            System.out.println("filesize :"+filesize+" and needed : "+fileBundle.getFilesize());
+            System.out.println("filesize :"+filesize+" and needed : "+fileBundle.filesize);
             return false;
         }
     }
 
-    public boolean isConnected(Object o){
+    private boolean isConnected(Object o){
         if (o.equals(null) || o.equals("con_gone")){
             return false;
         }
         return true;
     }
 
-    public FileInfo getFileInfo(FileBundle fileBundle){
-        if (Server.capacity<fileBundle.getFilesize()){
+    private FileInfo getFileInfo(FileBundle fileBundle){
+        if (Server.capacity<fileBundle.filesize){
             return null;
         }
         else{
-            return new FileInfo(Server.id++,fileBundle.getPathname(),randomNumber());
+            return new FileInfo(Server.id++,fileBundle.pathname,randomNumber());
         }
     }
 
     public int readingFromClients(long size,FileData fileData){
 
         FileChunk fileChunk=new FileChunk();
-        int i=0;
-
         decreaseCapacity(size);
-
-        int p=0,cnt=0;
 
         while(true){
             try {
@@ -225,12 +215,19 @@ public class ServerReaderWriter implements Runnable{
                 else  {
                     fileChunk = (FileChunk) o;
                     ServerClientDLL serverClientDLL=new ServerClientDLL(fileChunk.chunk);
-                    fileChunk.chunk=serverClientDLL.getChunk(serverClientDLL.bytessafterDestuffing(fileChunk.chunk));
-                    System.out.println("chunken for file"+(++cnt)+" is : "+fileChunk.chunk.length);
+
+                    byte[]  bytes=serverClientDLL.bytessafterDestuffing(fileChunk.chunk);
+                    fileChunk.chunk=serverClientDLL.getChunks(bytes);
                 }
 
                 if (isReceived(fileChunk, fileData)) {
-                    connection.write("yes");
+                    try {
+                        connection.write("yes");
+                    }
+                    catch (Exception e){
+                        System.out.println("yee");
+                    }
+
                 }
 
                 else{
@@ -246,8 +243,6 @@ public class ServerReaderWriter implements Runnable{
     }
 
     public boolean isReceived(FileChunk fileChunk,FileData fileData){
-
-
         if (fileChunk != null) {
             fileData.addChunks(fileChunk);
             return true;
@@ -272,12 +267,8 @@ public class ServerReaderWriter implements Runnable{
         Server.capacity+=size;
     }
 
-    public int randomNumber(){
+    private int randomNumber(){
         Random random=new Random();
-
-        return random.nextInt(1024*20)+1024;
+        return random.nextInt(1024*10)+1024;
     }
-
-
-
 }

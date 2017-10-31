@@ -2,8 +2,6 @@ package Clients;
 
 import SharedFiles.DLLhelper;
 
-import java.util.ArrayList;
-
 public class ClientServerDLL extends DLLhelper{
     int sequenceNo;
     int acknowledgementNo;
@@ -69,12 +67,19 @@ public class ClientServerDLL extends DLLhelper{
         String str=string;
 
         while (str.length()>8){
-            bytes[i++]=(byte)Integer.parseInt(str.substring(0,8),2);
+            bytes[i++]=getByte(str.substring(0,8));
             str=str.substring(8);
         }
 
-        if (str.length()!=0)bytes[i]=(byte)Integer.parseInt(str,2);
+        if (str.length()!=0)bytes[i]=getByte(str);
+        return bytes;
+    }
+
+    public byte[] introduceError(byte[] data){
+        byte[] bytes=data;
+        int  temp=data[5] & 0x80;
+        if (temp>0) bytes[5] &= 0x7f;
+        else bytes[5] |= 0x80;
         return bytes;
     }
 }
-

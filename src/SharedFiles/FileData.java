@@ -37,15 +37,6 @@ public class FileData implements Serializable{
         }
         return sum;
     }
-
-    public int getFileId() {
-        return fileId;
-    }
-
-    public void setFileId(int fileId) {
-        this.fileId = fileId;
-    }
-
     public ArrayList<byte[]> getChunks() {
         return chunks;
     }

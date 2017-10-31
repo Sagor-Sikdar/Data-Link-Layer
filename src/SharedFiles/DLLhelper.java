@@ -31,4 +31,24 @@ public class DLLhelper {
         formatterdStringPrint(string.substring(8));
     }
 
+    public int getSubstrCount(String str,int count){
+        int position=str.indexOf("11111");
+        if (position==-1){
+            return count;
+        }
+        else if (position+5==str.length()){
+            return count+1;
+        }
+        count++;
+        return  getSubstrCount(str.substring(position+5),count);
+    }
+
+    public byte getByte(String str){
+        byte result=0x00;
+        for (int i=0;i<str.length();i++){
+            if (str.charAt(i)=='1') result |=(1<<(7-i));
+        }
+        return result;
+    }
+
 }

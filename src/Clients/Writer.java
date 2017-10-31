@@ -6,11 +6,17 @@ import SharedFiles.*;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.Scanner;
+import java.util.concurrent.TimeoutException;
+import java.util.*;
+
+
 import util.ConnectionUtillities;
 
 
-public class Writer implements Runnable{
+public class Writer extends DLLhelper implements Runnable{
     public ConnectionUtillities connection;
     FileInputStream fileInputStream;
 
@@ -49,8 +55,8 @@ public class Writer implements Runnable{
                     String pathname = "C:\\Users\\User\\Desktop\\Server\\";
                     System.out.println("Choose Filename : ");
                     Scanner scanner=new Scanner(System.in);
-                    String filenameInput=scanner.nextLine();
 
+                    String filenameInput=scanner.nextLine();
                     String path=pathname+filenameInput;
 
                     File file = new File(path);
@@ -143,19 +149,22 @@ public class Writer implements Runnable{
     public void fileDescriptor(FileInfo fileInfo) throws Exception{
         File file=new File(fileInfo.filepath);
         long size=file.length();
-        byte[] chunk=new byte[fileInfo.maxSize%(int)size];
+        int length;
+        if (size>0) length=fileInfo.maxSize%(int)size;
+        else length=1;
+
+        byte[] chunk=new byte[length];
+
         int fileId=fileInfo.fileId;
         fileInputStream=new FileInputStream(file);
         ClientServerDLL clientServerDLL;
 
         int chunklen=0,i=0;
-
-       // connection.write(fileInfo);//fileid er jonno pathalam fileinfo abr
         while ((chunklen = fileInputStream.read(chunk)) != -1) {
+
             clientServerDLL=new ClientServerDLL(0,0,chunk);
-            byte[] result=(clientServerDLL.getData(0,0,chunk));
+            byte[] result=(clientServerDLL.getData(2,4,chunk));
             String t=clientServerDLL.stuffedData(clientServerDLL.convertTotalData(result),"");
-            System.out.println("chunklen for file "+(i+1)+" is :"+chunklen+" and passed size : "+result.length+" result : "+result.length);
             FileChunk fileChunk = new FileChunk(fileInfo.fileId, clientServerDLL.getFrame(clientServerDLL.stringtoBytearray(t)));
             connection.write(fileChunk);//file er chunk portesi
 
@@ -168,25 +177,23 @@ public class Writer implements Runnable{
             chunk = new byte[chunklen];
 
 
-            //jinis paisi eitar guarantee
-            connection.sc.setSoTimeout(30000);
             String acknowledgement = (String) connection.read();
-
-            try {
-                if (acknowledgement.equals("yes")) {
-                    System.out.println((++i) + "th chunk received");
-                    continue;
-                }
-                else {
-                    System.out.println("connection ended");
-                    continue;
-                }
+            if (acknowledgement.equals("yes")) {
+                System.out.println((++i) + "th chunk received");
+                continue;
             }
-            catch (Exception e){
+
+            else if (acknowledgement.equals("timeout")){
                 connection.write("timeout");
-                System.out.println("giving timeout messages");
+                System.out.println("Timeout Found");
+                continue;
+            }
+
+            else {
+                System.out.println("Connection Ended");
                 break;
             }
+
         }
 
         String acknowledgement = (String) connection.read();//acknowledgement for the last chunk
