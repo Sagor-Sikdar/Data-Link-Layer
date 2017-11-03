@@ -4,11 +4,16 @@ import java.io.Serializable;
 import java.util.ArrayList;
 
 public class FileData implements Serializable{
-    public int fileId;
+    public String filename;
+
+    public FileData(String filename, ArrayList<byte[]> chunks) {
+        this.filename = filename;
+        this.chunks = chunks;
+    }
+
     public ArrayList<byte[]>chunks;
 
-    public FileData(int fileId, ArrayList<byte[]> chunks) {
-        this.fileId = fileId;
+    public FileData( ArrayList<byte[]> chunks) {
         this.chunks = chunks;
     }
 
@@ -18,8 +23,8 @@ public class FileData implements Serializable{
         chunks=new ArrayList<byte[]>();
     }
 
-    public void addChunks(FileChunk newChunks){
-        chunks.add(newChunks.chunk);
+    public void addChunks(byte[] data){
+        chunks.add(data);
     }
 
     public int size(){
@@ -36,12 +41,5 @@ public class FileData implements Serializable{
             sum+=check(i);
         }
         return sum;
-    }
-    public ArrayList<byte[]> getChunks() {
-        return chunks;
-    }
-
-    public void setChunks(ArrayList<byte[]> chunks) {
-        this.chunks = chunks;
     }
 }

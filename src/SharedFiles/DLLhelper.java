@@ -21,14 +21,20 @@ public class DLLhelper {
     }
 
     //formatted kore string print kore
-    public  void formatterdStringPrint(String string){
-        if(string.length()<9) {
-            System.out.println(string);
-            return;
-        }
-        System.out.print(string.substring(0,8)+" ");
+    public  void formatterdStringPrint(byte[] data){
+        int i=0;
 
-        formatterdStringPrint(string.substring(8));
+        for (byte b:data){
+            System.out.print(String.format("%8s", Integer.toBinaryString(b & 0xFF)).replace(' ', '0'));
+            System.out.print("  ");
+
+            i++;
+            if(i==15){
+                System.out.println();
+                i=0;
+            }
+        }
+        System.out.println();
     }
 
     public int getSubstrCount(String str,int count){
@@ -48,6 +54,34 @@ public class DLLhelper {
         for (int i=0;i<str.length();i++){
             if (str.charAt(i)=='1') result |=(1<<(7-i));
         }
+        return result;
+    }
+
+    public void printBytes(byte[] data){
+        int i=0;
+
+
+        for (byte b:data){
+            System.out.print(b + "  ");
+
+            i++;
+            if (i%40==0) {
+                System.out.println();
+                i = 0;
+            }
+        }
+        System.out.print(calculateChecksum(data));
+        System.out.println();
+    }
+
+    public byte[] datawithChecksum(byte[] data){
+        byte[] result=new byte[data.length+1];
+        int i=0;
+
+        for (byte b : data){
+            result[i++]=b;
+        }
+        result[i]=calculateChecksum(data);
         return result;
     }
 

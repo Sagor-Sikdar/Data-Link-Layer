@@ -1,274 +1,191 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package ServerEnd;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.*;
 
-import javafx.beans.binding.ObjectExpression;
+import java.io.IOException;
+import java.util.*;
 import util.ConnectionUtillities;
 import SharedFiles.*;
-import Clients.*;
 
-/**
- *
- * @author uesr
- */
-public class ServerReaderWriter extends DLLhelper implements Runnable{
+public class ServerReaderWriter extends DLLhelper implements Runnable {
 
-    public HashMap<String,Information> clientList;
-    public ConnectionUtillities connection;
-    public String username;
-    public HashMap<String,ArrayList<FileData>>receiverInfo;
-    public HashMap<Integer,FileBundle>docfile;
+    private HashMap<String, Information> clientList;
+    private ConnectionUtillities connection;
+    private String username;
+    private HashMap<String, ArrayList<FileData>> receiverInfo;
 
-    
-    public ServerReaderWriter(String username,ConnectionUtillities con, HashMap<String,Information> list,HashMap<String,ArrayList<FileData>>receiverInfo,HashMap<Integer,FileBundle>docfile){
-        connection=con;
-        clientList=list;
-        this.username=username;
-        this.receiverInfo=receiverInfo;
-        this.docfile=docfile;
 
+    public ServerReaderWriter(String username, ConnectionUtillities con, HashMap<String, Information> list, HashMap<String, ArrayList<FileData>> receiverInfo) {
+        connection = con;
+        clientList = list;
+        this.username = username;
+        this.receiverInfo = receiverInfo;
     }
-    
+
     @Override
     public void run() {
 
 
         while (true) {
-            //client ki  read korte chay naki write korte chay
-            Object o = connection.read();
-            if (isConnected(o)) {
+            try {
+                //client ki  read korte chay naki write korte chay
+                Object o = connection.read();
                 String string = o.toString();
                 if (string.equals("sender")) {
-
-                    o = connection.read();//kak pathabo?
-                    String receiverId = o.toString();
-
-                    if (clientList.containsKey(receiverId)) {//recipient online e ase
-                        connection.write("yes");
-                        System.out.println("recipient is in online");
-
-                        //1ta sender er theke full file portesi :3
-
-                        Object object = connection.read();//FileBundle with filename and size
-
-                        if (isConnected(object)) {
-                            FileBundle fileBundle = (FileBundle) object;//filename ar filesize read korlam
-                            long size=fileBundle.filesize;
-
-                            FileInfo fileInfo = getFileInfo(fileBundle);//fileId,filechunk bole dilo
-                            int fileId = fileInfo.fileId;
-
-                            //validity checking
-                            if (fileInfo == null) {
-                                System.out.println("capacity shortage");
-                                connection.write(null);
-                                continue;
-                            }
-                            docfile.put(fileId,fileBundle);
-                            connection.write(fileInfo);//chunksize,fileid dilam
-
-
-
-                            if (receiverInfo.get(receiverId)==null){
-                                receiverInfo.put(receiverId,new ArrayList<FileData>());
-                            }
-                            FileData fileData = new FileData(fileId, new ArrayList<byte[]>());
-                            receiverInfo.get(receiverId).add(fileData);
-
-                            int fileSize = readingFromClients(size, fileData);
-
-                            if (fileSize != -1) {//filesize -1 mane disconnected,jodi majhpothe sender udhao hoye jay ar ki
-                                if (fileSize==0){//timeout
-                                    addCapacity(docfile.get(fileId).filesize);
-                                    receiverInfo.get(receiverId).remove(fileData);
-                                    continue;
-                                }
-                                string = connection.read().toString();//interrupted hoile dhora khabo ekhane
-                                if (string.equals("successful")) {
-                                    if (successfulUpload(fileBundle, fileSize)) {
-                                        System.out.println("successfully uploaded");
-
-                                    }
-                                    else {
-                                        System.out.println("unsuccessful");
-                                        receiverInfo.get(receiverId).remove(fileData);
-                                        addCapacity(fileBundle.filesize);
-                                    }
-                                }
-                            }
-
-                            else {
-                                clientList.remove(username);
-                                receiverInfo.get(receiverId).remove(fileData);
-                                addCapacity(fileBundle.filesize);
-                                break;
-                            }
-                        }
-                        else if (!isConnected(object)) {
-                            clientList.remove(username);
-                            break;
-                        }
-
-                    }
-                    else {
-                        connection.write("no");
-                        System.out.println("recipient is not logged in");
-                    }
+                    senderPart();
                 }
-                else if (string.equals("receiver")){
-
-                    if (receiverInfo.get(username)==null){
-                        receiverInfo.put(username,new ArrayList<FileData>());
-                    }
-
-                     //client file ta porte chay kina
-                    Object object=connection.read();
-                    if (!isConnected(object)){
-                        clientList.remove(username);
-                        break;
-                    }
-
-                    if (object.toString().equals("yes")) {
-                        int size = receiverInfo.get(username).size();
-                        System.out.println("size :" + size);
-                        if (size == 0) {
-                            System.out.println("nothing to be received");
-                            connection.write(null);
-                            continue;
-                        }
-
-                        FileData file = receiverInfo.get(username).get(0);
-                        int fileId=file.fileId;
-                        String name=docfile.get(fileId).filename;
-                        long filesize=docfile.get(fileId).filesize;
-                        FileSample fileSample=new FileSample(name,file);
-                        connection.write(fileSample);
-                        receiverInfo.get(username).remove(0);
-                        addCapacity(filesize);
-
-                    }
+                else if (string.equals("receiver")) {
+                    receiverPart();
                 }
+
             }
-            else {
+
+            catch (IOException e) {
                 clientList.remove(username);
                 break;
+            } catch (ClassNotFoundException e) {
+                System.out.println("Class Not Found");
             }
         }
 
     }
 
-    public boolean successfulUpload(FileBundle fileBundle,int filesize){
-        if (fileBundle.filesize==filesize){
-            return true;
-        }
-        else{
-            System.out.println("filesize :"+filesize+" and needed : "+fileBundle.filesize);
-            return false;
-        }
-    }
-
-    private boolean isConnected(Object o){
-        if (o.equals(null) || o.equals("con_gone")){
-            return false;
-        }
-        return true;
-    }
-
-    private FileInfo getFileInfo(FileBundle fileBundle){
-        if (Server.capacity<fileBundle.filesize){
-            return null;
-        }
-        else{
-            return new FileInfo(Server.id++,fileBundle.pathname,randomNumber());
-        }
-    }
-
-    public int readingFromClients(long size,FileData fileData){
-
-        FileChunk fileChunk=new FileChunk();
+    private int readingFromClients(long size, FileData fileData) throws IOException, ClassNotFoundException {
         decreaseCapacity(size);
+        int ackno = 0;
+        int frame_no = 1;
 
-        while(true){
-            try {
-                Object o=connection.read();
-                if (!isConnected(o)){
-                    clientList.remove(username);
-                    return -1;
-                }
+        while (true) {
 
-                else if(o.equals("size=0")){
-                    fileChunk=null;
-                }
+            Object o = connection.read();
 
-                else if (o.equals("timeout")){
-                    return 0;
-                }
-
-                else  {
-                    fileChunk = (FileChunk) o;
-                    ServerClientDLL serverClientDLL=new ServerClientDLL(fileChunk.chunk);
-
-                    byte[]  bytes=serverClientDLL.bytessafterDestuffing(fileChunk.chunk);
-                    fileChunk.chunk=serverClientDLL.getChunks(bytes);
-                }
-
-                if (isReceived(fileChunk, fileData)) {
-                    try {
-                        connection.write("yes");
-                    }
-                    catch (Exception e){
-                        System.out.println("yee");
-                    }
-
-                }
-
-                else{
-                    return totalFilesize(fileData);
-                }
-
+            if (o.getClass().equals(String.class)) {
+                System.out.println("finished");
+                return fileData.totalSize();
             }
-            catch (Exception e){
-                e.printStackTrace();
-                return 0;
+
+            byte[] temp = (byte[]) o;
+            ServerClientDLL serverClientDLL = new ServerClientDLL(temp);
+
+
+            if (serverClientDLL.hasChecksumError(temp)) {
+            }
+
+            else if (temp[3]!=ackno){
+                temp[3]=(byte)ackno;
+                connection.write(temp);
+                System.out.println("I got it previously");
+            }
+            else {
+                System.out.println("Raw Data Found After Excluding Headers and Checksum for frame : "+ frame_no);
+                if (Constants.PRINT_BYTE_STRING==1) printBytes(serverClientDLL.bytessafterDestuffing(temp));
+                else   formatterdStringPrint(serverClientDLL.bytessafterDestuffing(temp));
+                frame_no++;
+
+                fileData.addChunks(serverClientDLL.getChunks(serverClientDLL.bytessafterDestuffing(temp)));
+                ackno = 1 - ackno;
+                temp[3] = (byte) ackno;
+                connection.write(temp);
             }
         }
     }
+    private void senderPart() throws IOException, ClassNotFoundException {
 
-    public boolean isReceived(FileChunk fileChunk,FileData fileData){
-        if (fileChunk != null) {
-            fileData.addChunks(fileChunk);
-            return true;
+        Object o;
+
+        o = connection.read();//kak pathabo?
+        String receiverId = o.toString();
+
+        if (clientList.containsKey(receiverId)) {//recipient online e ase
+            connection.write("yes");
+            System.out.println("recipient is in online");
+
+            //1ta sender er theke full file portesi :3
+            Object object = connection.read();//FileBundle with filename and size
+            FileBundle fileBundle = (FileBundle) object;//filename ar filesize read korlam
+            long size= fileBundle.filesize;
+            String filename=fileBundle.filename;
+            FileInfo fileInfo = getFileInfo(fileBundle);//fileId,filechunk bole dilo
+
+            //validity checking
+            if (fileInfo == null) {
+                System.out.println("capacity shortage");
+                connection.write(null);
+                return;
+            }
+            connection.write(fileInfo);//chunksize,fileid dilam
+
+
+            receiverInfo.computeIfAbsent(receiverId, k -> new ArrayList<FileData>());//Receive list e receiverID na thake
+
+            FileData fileData = new FileData(filename,new ArrayList<byte[]>());
+            receiverInfo.get(receiverId).add(fileData);
+
+
+            int fileSize = readingFromClients(size, fileData);
+
+
+            if (successfulUpload(fileBundle, fileSize)) {
+                System.out.println("successfully uploaded");
+            }
+            else {
+                System.out.println("unsuccessful");
+                receiverInfo.get(receiverId).remove(fileData);
+                addCapacity(fileBundle.filesize);
+            }
         }
-        return false;
+        else {
+            connection.write("no");
+            System.out.println("recipient is not logged in");
+        }
     }
 
-    public int totalFilesize(FileData fileData){
-        int p=0;
-        for(int m=0;m<fileData.size();m++){
-            p+=fileData.check(m);
-        }
-        return p;
+    private boolean successfulUpload(FileBundle fileBundle,int filesize){
+        return fileBundle.filesize==filesize;
     }
-
-    public void decreaseCapacity(long size){
+    private FileInfo getFileInfo(FileBundle fileBundle){
+         return (Server.capacity<fileBundle.filesize)? null : new FileInfo(Server.id++,fileBundle.pathname,randomNumber(fileBundle.filesize));
+    }
+    private void decreaseCapacity(long size){
         Server.capacity-=size;
     }
-
-
-    public void addCapacity(long size){
+    private void addCapacity(long size){
         Server.capacity+=size;
     }
-
-    private int randomNumber(){
-        Random random=new Random();
-        return random.nextInt(1024*10)+1024;
+    private int randomNumber(long filesize){
+        return (filesize>Constants.NO_of_FILE)  ? (int) (filesize/Constants.NO_of_FILE) : 1;
     }
+
+
+    private void receiverPart() throws IOException, ClassNotFoundException {
+
+        receiverInfo.computeIfAbsent(username, k -> new ArrayList<FileData>());
+
+
+        //client file ta porte chay kina
+        Object object = connection.read();
+
+        if (object.toString().equals("yes")) {
+            int size = receiverInfo.get(username).size();
+
+            if (size == 0) {
+                System.out.println("nothing to be received");
+                connection.write(null);
+                return;
+            }
+
+
+            FileData file = receiverInfo.get(username).get(0);
+            long filesize=file.totalSize();
+
+
+            FileSample fileSample = new FileSample(file.filename, file);
+            receiverInfo.get(username).remove(0);
+
+            connection.write(fileSample);
+            addCapacity(filesize);
+        }
+    }
+
 }
+
+

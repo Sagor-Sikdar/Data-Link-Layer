@@ -1,6 +1,5 @@
 package SharedFiles;
 
-import java.io.File;
 import java.io.Serializable;
 
 public class FileInfo implements Serializable{

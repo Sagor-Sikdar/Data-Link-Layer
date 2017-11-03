@@ -77,9 +77,9 @@ public class ClientServerDLL extends DLLhelper{
 
     public byte[] introduceError(byte[] data){
         byte[] bytes=data;
-        int  temp=data[5] & 0x80;
-        if (temp>0) bytes[5] &= 0x7f;
-        else bytes[5] |= 0x80;
+        int  temp=data[4] & 0x80;
+        if (temp!=0) bytes[4] &= 0x7f;
+        else bytes[4] |= 0x80;
         return bytes;
     }
 }

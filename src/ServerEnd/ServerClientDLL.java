@@ -4,24 +4,26 @@ import SharedFiles.DLLhelper;
 
 public class ServerClientDLL extends DLLhelper{
     public byte[] frame;
-
     public ServerClientDLL(byte[] frame) {
         this.frame = frame;
     }
 
+    public boolean hasChecksumError(byte[] data){
+        byte[] temp=datawithoutChecksum(data);
+        byte checksum=calculateChecksum(temp);
+        byte[] result=bytessafterDestuffing(data);
+        byte ans=result[result.length-1];
+        return ans!=checksum;
+    }
 
-    public int hasChecksumError(byte[] data){
-        byte checksum=calculateChecksum(data);
-        byte ans=(byte)0x45;
-
-        if (ans==checksum){
-            System.out.println("matched");
-            return 1;
+    public byte[] datawithoutChecksum(byte[] data) {
+        byte[] temp=data;
+        byte[] result=bytessafterDestuffing(temp);
+        byte[] ans=new byte[temp.length-1];
+        for (int i=0;i<result.length-1;i++){
+            ans[i]=result[i];
         }
-        else{
-            System.out.println("Has checksum Error");
-            return 0;
-        }
+        return ans;
     }
 
     public byte[] bytessafterDestuffing(byte[] data){
@@ -83,6 +85,4 @@ public class ServerClientDLL extends DLLhelper{
         }
         return result;
     }
-
-
 }
