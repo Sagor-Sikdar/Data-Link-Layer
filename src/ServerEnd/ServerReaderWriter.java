@@ -12,13 +12,15 @@ public class ServerReaderWriter extends DLLhelper implements Runnable {
     private ConnectionUtillities connection;
     private String username;
     private HashMap<String, ArrayList<FileData>> receiverInfo;
+    private HashMap<String,ArrayList<SenderInfo>>senderDetails;
 
 
-    public ServerReaderWriter(String username, ConnectionUtillities con, HashMap<String, Information> list, HashMap<String, ArrayList<FileData>> receiverInfo) {
+    public ServerReaderWriter(String username, ConnectionUtillities con, HashMap<String, Information> list, HashMap<String, ArrayList<FileData>> receiverInfo,HashMap<String,ArrayList<SenderInfo>>senderDetails) {
         connection = con;
         clientList = list;
         this.username = username;
         this.receiverInfo = receiverInfo;
+        this.senderDetails=senderDetails;
     }
 
     @Override
@@ -115,8 +117,6 @@ public class ServerReaderWriter extends DLLhelper implements Runnable {
             connection.write(fileInfo);//chunksize,fileid dilam
 
 
-            receiverInfo.computeIfAbsent(receiverId, k -> new ArrayList<FileData>());//Receive list e receiverID na thake
-
             FileData fileData = new FileData(filename,new ArrayList<byte[]>());
             receiverInfo.get(receiverId).add(fileData);
 
@@ -126,6 +126,7 @@ public class ServerReaderWriter extends DLLhelper implements Runnable {
 
             if (successfulUpload(fileBundle, fileSize)) {
                 System.out.println("successfully uploaded");
+                senderDetails.get(receiverId).add(new SenderInfo(username,fileBundle,fileInfo));
             }
             else {
                 System.out.println("unsuccessful");
@@ -158,34 +159,33 @@ public class ServerReaderWriter extends DLLhelper implements Runnable {
 
     private void receiverPart() throws IOException, ClassNotFoundException {
 
-        receiverInfo.computeIfAbsent(username, k -> new ArrayList<FileData>());
+        SenderInfo senderInfo;
+        if (senderDetails.get(username).size()==0) {connection.write(senderInfo=null);return;}
+        connection.write(senderDetails.get(username).get(0));
 
 
         //client file ta porte chay kina
         Object object = connection.read();
 
         if (object.toString().equals("yes")) {
-            int size = receiverInfo.get(username).size();
-
-            if (size == 0) {
-                System.out.println("nothing to be received");
-                connection.write(null);
-                return;
-            }
-
 
             FileData file = receiverInfo.get(username).get(0);
             long filesize=file.totalSize();
 
 
             FileSample fileSample = new FileSample(file.filename, file);
-            receiverInfo.get(username).remove(0);
+
 
             connection.write(fileSample);
             addCapacity(filesize);
         }
-    }
 
+        receiverInfo.get(username).remove(0);
+        senderDetails.get(username).remove(0);
+
+
+
+    }
 }
 
 

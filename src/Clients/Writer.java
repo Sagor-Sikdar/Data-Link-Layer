@@ -190,6 +190,14 @@ public class Writer extends DLLhelper implements Runnable {
 
     private void receiverPart() throws IOException, ClassNotFoundException {
         Object o=new Object();
+        SenderInfo senderInfo=(SenderInfo)connection.read();
+
+        if (senderInfo==null){
+            System.out.println("No File to receive");
+            return;
+        }
+        System.out.println("Sender : "+senderInfo.sender+" Filename : "+senderInfo.fileBundle.filename);
+
         Scanner scanner = new Scanner(System.in);
         System.out.println("Do you want to receive a file");
         String input = scanner.nextLine();
@@ -199,19 +207,18 @@ public class Writer extends DLLhelper implements Runnable {
         if (input.equals("y")) {
 
             connection.write("yes");
-             o = connection.read();
-            if (o == null) System.out.println("nothing to receive");
-            else {
-                FileSample fileSample = (FileSample) o;
-                String name = fileSample.fileName;
-                FileData fileData = fileSample.fileData;
-                String path = Constants.PATHNAME_CLIENT + name;
-                File file = new File(path);
 
-                FileOutputStream fileOutputStream = new FileOutputStream(file);
-                addbytes(fileOutputStream, fileData);
-                System.out.println("Received");
-            }
+
+            FileSample fileSample = (FileSample) connection.read();
+            String name = fileSample.fileName;
+            FileData fileData = fileSample.fileData;
+            String path = Constants.PATHNAME_CLIENT + name;
+            File file = new File(path);
+
+            FileOutputStream fileOutputStream = new FileOutputStream(file);
+            addbytes(fileOutputStream, fileData);
+            System.out.println("Received");
+
 
         }
         else {
